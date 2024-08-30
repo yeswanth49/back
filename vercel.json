@@ -5,7 +5,7 @@
       "src": "index.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["openai.service.js"]
+        "includeFiles": ["openai.service.js", "assistant.json", "Sample.docx"]
       }
     }
   ],
