@@ -5,7 +5,6 @@ const rateLimit = require("express-rate-limit");
 const { OpenAI } = require("openai");
 const fs = require('fs').promises;
 const path = require('path');
-const http = require('http');
 
 // Validate environment variables
 const requiredEnvVars = ['OPENAI_API_KEY', 'ASSISTANT_ID'];
@@ -65,57 +64,64 @@ app.get("/start", async (req, res) => {
 });
 
 app.post("/chat", async (req, res) => {
-    const { thread_id, message } = req.body;
-    if (!thread_id || !message) {
-      console.log("Error: Missing thread_id or message");
-      return res.status(400).json({ error: "Missing thread_id or message" });
-    }
-    console.log(`Received message: ${message} for thread ID: ${thread_id}`);
-  
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), 9500) // 8.5 seconds timeout
-    );
-  
-    const chatPromise = async () => {
-      await openai.beta.threads.messages.create(thread_id, {
-        role: "user",
-        content: message,
-      });
-  
-      const run = await openai.beta.threads.runs.createAndPoll(thread_id, {
-        assistant_id: ASSISTANT_ID,
-      });
-  
-      const messages = await openai.beta.threads.messages.list(run.thread_id);
-      return messages.data[0].content[0].text.value;
-    };
-  
-    try {
-      const response = await Promise.race([chatPromise(), timeoutPromise]);
-      console.log("Chat response:", { response }); // Log the response
-      return res.json({ response });
-    } catch (error) {
-      console.error("Error or timeout in /chat endpoint:", error);
-      let responseObj;
-      if (error.message === 'Timeout') {
-        responseObj = {
-          response: "I'm still processing your request. Please try again in a few seconds."
-        };
-      } else {
-        responseObj = { error: "Failed to handle chat", details: error.message };
-      }
-      console.log("Error response:", responseObj); // Log the error response
-      return res.status(error.message === 'Timeout' ? 200 : 500).json(responseObj);
-    }
-  });
+  const { thread_id, message } = req.body;
+  if (!thread_id || !message) {
+    console.log("Error: Missing thread_id or message");
+    return res.status(400).json({ error: "Missing thread_id or message" });
+  }
+  console.log(`Received message: ${message} for thread ID: ${thread_id}`);
 
-const server = http.createServer(app);
-server.timeout = 9000; // 9 seconds timeout
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout')), 9990) // 8.5 seconds timeout
+  );
+
+  const chatPromise = async () => {
+    await openai.beta.threads.messages.create(thread_id, {
+      role: "user",
+      content: message,
+    });
+
+    const run = await openai.beta.threads.runs.create(thread_id, {
+      assistant_id: ASSISTANT_ID,
+    });
+
+    let status;
+    do {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every second
+      const runStatus = await openai.beta.threads.runs.retrieve(thread_id, run.id);
+      status = runStatus.status;
+    } while (status === 'in_progress' || status === 'queued');
+
+    if (status !== 'completed') {
+      throw new Error(`Run ended with status: ${status}`);
+    }
+
+    const messages = await openai.beta.threads.messages.list(thread_id);
+    return messages.data[0].content[0].text.value;
+  };
+
+  try {
+    const response = await Promise.race([chatPromise(), timeoutPromise]);
+    console.log("Chat response:", { response });
+    return res.json({ response });
+  } catch (error) {
+    console.error("Error or timeout in /chat endpoint:", error);
+    let responseObj;
+    if (error.message === 'Timeout') {
+      responseObj = {
+        response: "I'm still processing your request. Please try again in a few seconds."
+      };
+    } else {
+      responseObj = { error: "Failed to handle chat", details: error.message };
+    }
+    console.log("Error response:", responseObj);
+    return res.status(error.message === 'Timeout' ? 200 : 500).json(responseObj);
+  }
+});
 
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// For Vercel deployment
 module.exports = app;
