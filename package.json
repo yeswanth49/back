@@ -16,8 +16,11 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
     "hyper-express": "^6.16.2",
     "hyper-express-cors": "^1.0.4",
-    "openai": "^4.47.1"
+    "limit": "^0.0.1",
+    "openai": "^4.47.1",
+    "rate": "^0.1.1"
   }
 }
