@@ -7,7 +7,7 @@ const fs = require('fs').promises;
 const path = require('path');
 
 // Validate environment variables
-const requiredEnvVars = ['OPENAI_API_KEY', 'ASSISTANT_ID'];
+const requiredEnvVars = ['OPENAI_API_KEY', 'ASSISTANT_ID',];
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`Error: ${envVar} environment variable is missing`);
@@ -91,6 +91,8 @@ app.post("/chat", async (req, res) => {
     return res.status(500).json({ error: "Failed to handle chat", details: error.message });
   }
 });
+
+
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
